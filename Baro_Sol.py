@@ -17,6 +17,7 @@
 
 
 from numpy import linspace,pi,sin,cos,sqrt,meshgrid,size
+from random import seed,random
 
 RAFILT=1        # Robert-Asselin time filter.
 RA_COEFF=0.0001 # Robert-Asselin filter coefficient.
@@ -84,3 +85,29 @@ y = linspace(0,ny,ny+1)*Delta_y
 
 (XMESH, YMESH) = meshgrid(x,y);
 XX = XMESH; YY=YMESH;
+
+# Section 2. Define the Initial Fields.
+#  w is the dependent variable. w_0 is the Initial field.
+#  Pedlosky gives equation for streamfunction. For more
+#  ergonomic scales we use the geopotential height.
+#
+#  Note that w does NOT include the part due to the
+#  mean zonal flow. THis must be added if required.
+#  w is periodic in both directions. Z is not.
+
+
+#set seed for same initial conditions every time
+seed(a=2)
+
+#randomize seed for different initial conditions
+#seed()
+
+ # Set the incoming values.
+Nwavex = 3
+Nwavey = 3
+Nwaves = (2*Nwavex+1)*(2*Nwavey+1)
+
+for kwave in range(-Nwavex,Nwavex+1):
+    for lwave in range(-Nwavey,Nwavey+1):
+         Amplitude = (2000.0*2*(random()-0.5)) / Nwaves
+         print(Amplitude)
