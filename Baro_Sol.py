@@ -16,7 +16,7 @@
 #     Ubar*d((Del^2w)/dx is added.
 
 
-from numpy import linspace,pi,sin,cos,sqrt,meshgrid,size,shape,zeros,transpose
+from numpy import linspace,pi,sin,cos,sqrt,meshgrid,size,shape,zeros,transpose,fix,mean,array
 from random import seed,random
 import matplotlib
 import matplotlib.cm as cm
@@ -24,7 +24,7 @@ import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from mpl_toolkits.mplot3d import Axes3D
-
+from numpy.fft import fft2
 RAFILT=1        # Robert-Asselin time filter.
 RA_COEFF=0.0001 # Robert-Asselin filter coefficient.
 FORWARD=0       # Forward time-step once per day.
@@ -70,6 +70,7 @@ Rearth = (4*10**7)/(2*pi);  # Radius of the Earth (meters). ###!!!!!!!!!!!!!NOT 
 Omega = 2*pi/(24*60*60) # Angular velocity of the Earth
 phi0=45*(pi/180)        # Latitude the calculation is centered on
 fcor0 = 2*Omega*sin(phi0) #Coiolis parameter
+beta0 = 2*Omega*cos(phi0)/Rearth;
 
 
 # Calculate the Rossby Radius of Deformation.
@@ -160,22 +161,41 @@ plt.title('500 mbar Geopotential Height (m)')
 
 
 
-#fig = plt.figure()
-#ax = fig.gca(projection='3d')
-#ax.scatter3D(XM, YM, w_0, cmap='Greens')
-#surf = ax.plot_surface(XM, YM, w_0, cmap=cm.coolwarm,
-#                       linewidth=0, antialiased=False)
-#
-#fig.colorbar(surf, shrink=0.5, aspect=5)
-#plt.title('Initial Stream Function');
-
-w_0=grav*Z_0/fcor0  #  w_0 is perturbation height (excl. Hbar and Ubar-terms).
+w_0=Z_0#*(grav/fcor0)  #  w_0 is perturbation height (excl. Hbar and Ubar-terms).
 
 #  Add the mean zonal flow ( -Ubar*y ).
 wtotal_0 = w_0 + Hbar - (fcor0/grav)*Ubar*YY;
 
 XM = XX*10**(-6)
 YM=YY*10**(-6);   #   Rescaled axes.
+
+
+# Save specific Fourier components for plotting and analysis.
+R=zeros((nx,ny))
+a1=[]
+a2=[]
+a3=[]
+a1star=[]
+a2star=[]
+a3star=[]
+
+[XXin,YYin] = meshgrid(x[1:nx],y[1:ny]);
+XXin=transpose(XXin)
+YYin=transpose(YYin)
+
+R=w_0[0:nx,0:ny]
+W_hat = fft2(R)
+W_hat_0 = W_hat
+
+
+
+a1.append(2*(W_hat[nx-1,ny-1]) /nxny)
+a2.append(2*(W_hat[nx-3,1]) /nxny)
+a3.append(2*(W_hat[4,0])/nxny)
+
+a1star.append(2*(W_hat[1,1]) / nxny)
+a2star.append(2*(W_hat[3,ny-1]) / nxny)
+a3star.append(2*(W_hat[nx-4,1]) / nxny)
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
@@ -234,93 +254,176 @@ Jarakawa = zeros((nx+1,ny+1))
 
 w = w_0;
 
+Energy=[]
+Enstrophy=[]
+NLsize=[]
+CFL_nonlin=[]
+R=zeros((nx,ny))
 
+for n in range(1,4):
 
 #Take derivatives using finite-difference method, setting periodic boundary
 #conditions in x and y
 
 #x derivative
 
-dwdx[1:nx,0:ny+2]= (w[2:nx+1,0:ny+1]-w[0:nx-1,0:ny+1])/(2*Delta_x);
-dwdx[0,0:ny+1] = (w[1,0:ny+1]-w[nx-1,0:ny+1])/(2*Delta_x);
-dwdx[nx,0:ny+1] = dwdx[0,0:ny+1];
+    dwdx[1:nx,0:ny+2]= (w[2:nx+1,0:ny+1]-w[0:nx-1,0:ny+1])/(2*Delta_x);
+    dwdx[0,0:ny+1] = (w[1,0:ny+1]-w[nx-1,0:ny+1])/(2*Delta_x);
+    dwdx[nx,0:ny+1] = dwdx[0,0:ny+1];
 
 # y-derivative of w
-dwdy[0:nx+1,1:ny] = (w[0:nx+1,2:ny+1]-w[0:nx+1,0:ny-1])/(2*Delta_y);
+    dwdy[0:nx+1,1:ny] = (w[0:nx+1,2:ny+1]-w[0:nx+1,0:ny-1])/(2*Delta_y);
 
-dwdy[0:nx+1,0] = (w[0:nx+1,1]-w[0:nx+1,ny-1])/(2*Delta_y);
-dwdy[0:nx+1,ny] = dwdy[0:nx+1,0];
+    dwdy[0:nx+1,0] = (w[0:nx+1,1]-w[0:nx+1,ny-1])/(2*Delta_y);
+    dwdy[0:nx+1,ny] = dwdy[0:nx+1,0];
 
 
 # Square of the gradient of w
-gradsq = dwdx**2+dwdy**2;
+    gradsq = dwdx**2+dwdy**2;
 
 # Second x-derivative of w
-d2wdx2[1:nx,0:ny+1] = (w[2:nx+1,0:ny+1]+w[0:nx-1,0:ny+1]-2*w[1:nx,0:ny+1])/(Delta_x**2)
-d2wdx2[0,0:ny+1] = (w[1,0:ny+1]+w[nx-1,0:ny+1]-2*w[0,0:ny+1])/(Delta_x**2)
-d2wdx2[nx,0:ny+1] = d2wdx2[0,0:ny+1]
+    d2wdx2[1:nx,0:ny+1] = (w[2:nx+1,0:ny+1]+w[0:nx-1,0:ny+1]-2*w[1:nx,0:ny+1])/(Delta_x**2)
+    d2wdx2[0,0:ny+1] = (w[1,0:ny+1]+w[nx-1,0:ny+1]-2*w[0,0:ny+1])/(Delta_x**2)
+    d2wdx2[nx,0:ny+1] = d2wdx2[0,0:ny+1]
 
 # Second y-derivative of w
-d2wdy2[0:nx+1,1:ny] = (w[0:nx+1,2:ny+1]+w[0:nx+1,0:ny-1]-2*w[0:nx+1,1:ny])/(Delta_y**2)
-d2wdy2[0:nx+1,0] = (w[0:nx+1,1]+w[0:nx+1,ny-1]-2*w[0:nx+1,0])/(Delta_y**2)
-d2wdy2[0:nx+1,ny] = d2wdy2[0:nx+1,0]
+    d2wdy2[0:nx+1,1:ny] = (w[0:nx+1,2:ny+1]+w[0:nx+1,0:ny-1]-2*w[0:nx+1,1:ny])/(Delta_y**2)
+    d2wdy2[0:nx+1,0] = (w[0:nx+1,1]+w[0:nx+1,ny-1]-2*w[0:nx+1,0])/(Delta_y**2)
+    d2wdy2[0:nx+1,ny] = d2wdy2[0:nx+1,0]
 
-laplac = d2wdx2+d2wdy2;
+    laplac = d2wdx2+d2wdy2;
 
 # x-derivative of laplacian
-dlapdx[1:nx,0:ny+1] = (laplac[2:nx+1,0:ny+1]-laplac[0:nx-1,0:ny+1])/(2*Delta_x)
-dlapdx[0,0:ny+1] = (laplac[1,0:ny+1]-laplac[nx-1,0:ny+1])/(2*Delta_x)
-dlapdx[nx,0:ny+1] = dlapdx[0,0:ny+1]
+    dlapdx[1:nx,0:ny+1] = (laplac[2:nx+1,0:ny+1]-laplac[0:nx-1,0:ny+1])/(2*Delta_x)
+    dlapdx[0,0:ny+1] = (laplac[1,0:ny+1]-laplac[nx-1,0:ny+1])/(2*Delta_x)
+    dlapdx[nx,0:ny+1] = dlapdx[0,0:ny+1]
 
 
 #y-derivative of laplacian
-dlapdy[0:nx+1,1:ny] = (laplac[0:nx+1,2:ny+1]-laplac[0:nx+1,0:ny-1])/(2*Delta_y)
-dlapdy[0:nx+1,0] = (laplac[0:nx+1,1]-laplac[0:nx+1,ny-1])/(2*Delta_y)
-dlapdy[0:nx+1,ny] = dlapdy[0:nx+1,0]
+    dlapdy[0:nx+1,1:ny] = (laplac[0:nx+1,2:ny+1]-laplac[0:nx+1,0:ny-1])/(2*Delta_y)
+    dlapdy[0:nx+1,0] = (laplac[0:nx+1,1]-laplac[0:nx+1,ny-1])/(2*Delta_y)
+    dlapdy[0:nx+1,ny] = dlapdy[0:nx+1,0]
 
-Jacobi = dwdx*dlapdy - dwdy*dlapdx
+    Jacobi = dwdx*dlapdy - dwdy*dlapdx
 
 #Compute the Arakawa Jacobian.
 
-Jac1 = Jacobi;
+    Jac1 = Jacobi;
 
-wdldx = w*dlapdx
-wdldy = w*dlapdy
+    wdldx = w*dlapdx
+    wdldy = w*dlapdy
 
-dwdldydx[1:nx,0:ny+1] = (wdldy[2:nx+1,0:ny+1]-wdldy[0:nx-1,0:ny+1])/(2*Delta_x);
-dwdldydx[0,0:ny+1] = (wdldy[1,0:ny+1]-wdldy[nx-1,0:ny+1])/(2*Delta_x);
-dwdldydx[nx,0:ny+1] = dwdldydx[0,0:ny+1];
+    dwdldydx[1:nx,0:ny+1] = (wdldy[2:nx+1,0:ny+1]-wdldy[0:nx-1,0:ny+1])/(2*Delta_x);
+    dwdldydx[0,0:ny+1] = (wdldy[1,0:ny+1]-wdldy[nx-1,0:ny+1])/(2*Delta_x);
+    dwdldydx[nx,0:ny+1] = dwdldydx[0,0:ny+1];
 
 
-dwdldxdy[0:nx+1,1:ny] = (wdldx[0:nx+1,2:ny+1]-wdldx[0:nx+1,0:ny-1])/(2*Delta_y)
-dwdldxdy[0:nx+1,0] = (wdldx[0:nx+1,1]-wdldx[0:nx+1,ny-1])/(2*Delta_y)
-dwdldxdy[0:nx+1,ny] = dwdldxdy[0:nx+1,0]
+    dwdldxdy[0:nx+1,1:ny] = (wdldx[0:nx+1,2:ny+1]-wdldx[0:nx+1,0:ny-1])/(2*Delta_y)
+    dwdldxdy[0:nx+1,0] = (wdldx[0:nx+1,1]-wdldx[0:nx+1,ny-1])/(2*Delta_y)
+    dwdldxdy[0:nx+1,ny] = dwdldxdy[0:nx+1,0]
 
-Jac2 = dwdldydx - dwdldxdy
+    Jac2 = dwdldydx - dwdldxdy
 
-dwdxl = dwdx*laplac
-dwdyl = dwdy*laplac
+    dwdxl = dwdx*laplac
+    dwdyl = dwdy*laplac
 
-ddwdxldy[0:nx+1,1:ny] = (dwdxl[0:nx+1,2:ny+1]-dwdxl[0:nx+1,0:ny-1])/(2*Delta_y)
-ddwdxldy[0:nx+1,0] = (dwdxl[0:nx+1,1]-dwdxl[0:nx+1,ny-1])/(2*Delta_y)
-ddwdxldy[0:nx+1,ny] = ddwdxldy[0:nx+1,0]
+    ddwdxldy[0:nx+1,1:ny] = (dwdxl[0:nx+1,2:ny+1]-dwdxl[0:nx+1,0:ny-1])/(2*Delta_y)
+    ddwdxldy[0:nx+1,0] = (dwdxl[0:nx+1,1]-dwdxl[0:nx+1,ny-1])/(2*Delta_y)
+    ddwdxldy[0:nx+1,ny] = ddwdxldy[0:nx+1,0]
 
-ddwdyldx[1:nx,0:ny+1] = (dwdyl[2:nx+1,0:ny+1]-dwdyl[0:nx-1,0:ny+1])/(2*Delta_x);
-ddwdyldx[0,0:ny+1] = (dwdyl[1,0:ny+1]-dwdyl[nx-1,0:ny+1])/(2*Delta_x)
-ddwdyldx[nx,0:ny+1] = ddwdyldx[0,0:ny+1]
+    ddwdyldx[1:nx,0:ny+1] = (dwdyl[2:nx+1,0:ny+1]-dwdyl[0:nx-1,0:ny+1])/(2*Delta_x);
+    ddwdyldx[0,0:ny+1] = (dwdyl[1,0:ny+1]-dwdyl[nx-1,0:ny+1])/(2*Delta_x)
+    ddwdyldx[nx,0:ny+1] = ddwdyldx[0,0:ny+1]
 
-Jac3 = ddwdxldy - ddwdyldx
+    Jac3 = ddwdxldy - ddwdyldx
 
-Jarakawa = (1/3)*(Jac1+Jac2+Jac3)
+    Jarakawa = (1/3)*(Jac1+Jac2+Jac3)
 
 #%%% Use the energy and enstrophy preserving Jacobian.
 
-Jacobi = Jarakawa;
+    Jacobi = Jarakawa;
 
 #  Compute the function to be stepped forward.
-Q_n = laplac - F*w
+    Q_n = laplac - F*w
+
+    #  First time through the loop:
+    if n==1:
+        Dt = Delta_t/2;
+        Q_nm1 = Q_n;
+
+        rmeshvec=linspace(0,nx-1,nx)
+        smeshvec=linspace(0,ny-1,ny)
+        [rmesh,smesh] = meshgrid(rmeshvec,smeshvec)
+
+        rr = transpose(rmesh)
+        ss =transpose(smesh)
+        C_rs = 2*(cos(2*pi*rr/nx)-1)/Delta_x**2+2*(cos(2*pi*ss/ny)-1)/Delta_y**2-F
+
+    if FORWARD==1 and fix(n/nspd)*nspd==n:
+        print('Forward timestep once per day \n')
+        Dt = Delta_t/2
+        Q_nm1 = Q_n
 
 
+    #Calculate the energy and enstrophy integrals, the conserved quantities
+    Rgsq=zeros((nx,ny))
+    Rgsq[0:nx,0:ny] = gradsq[0:nx,0:ny]
+    Rwsq=zeros((nx,ny))
+    Rwsq[0:nx,0:ny] = w[0:nx,0:ny]**2
+    Energy.append(0.5 * mean(mean(Rgsq+F*Rwsq)))
+    Rgsq[0:nx,0:ny] = laplac[0:nx,0:ny]
+    Rwsq[0:nx,0:ny] = w[0:nx,0:ny]
+    Enstrophy.append(0.5 * mean(mean((Rgsq-F*Rwsq)**2)))
+
+    #  Estimate the size of the nonlinear terms
+
+    NonL = mean(mean(abs(Jacobi)))
+    Beta = mean(mean(abs(beta0*dwdx)))
+    NLsize.append(NonL/Beta)
+
+    umax = abs(dwdy).max()
+    vmax = abs(dwdx).max()
+    maxx=array((umax,vmax))
+    VMAX = maxx.max()
+    CFL_nonlin.append(abs(VMAX*Delta_t/Delta_x))
+
+    Q_np1 = Q_nm1 - (2*Dt)*((grav/fcor0)*Jacobi + beta0*dwdx + Ubar*dlapdx)
+
+    if RAFILT==1:
+        RA_coeff = RA_COEFF
+        Q_n = Q_n + RA_coeff*(Q_nm1+Q_np1-2*Q_n)
+
+#   Section 3.3: Solve the Helmholtz Equation (Del^2-F)w = R.
+
+#  Compute the fft of the right hand side
+#  (strip off additional row and column).
+    R[0:nx,0:ny] = Q_np1[0:nx,0:ny]
+    R_hat = fft2(R)
+
+#Compute the transform of the solution
+    W_hat = R_hat/C_rs
+
+#  Compute the Wave Power of the components
+
+    a1.append(2*(W_hat[nx-1,ny-1]) / nxny)
+    a2.append(2*(W_hat[nx-3,1]) / nxny)
+    a3.append(2*(W_hat[4,0]) / nxny)
+    a1star.append(2*(W_hat[1,1]) / nxny)
+    a2star.append(2*(W_hat[3,ny-1]) / nxny)
+    a3star.append(2*(W_hat[nx-4,1]) / nxny)
+
+    
+#  Fourier filtering 
+   if(FCLIP)
+     nfilt = 10;
+     nfilt=min([nfilt,(nx+1)/2-1,(ny+1)/2-1]);
+     mask(1:nx,1:ny) = ones(nx,ny);
+     nx1 = 2+nfilt; nx2 = nx-nfilt;
+     ny1 = 2+nfilt; ny2 = ny-nfilt; 
+     mask(nx1:nx2,1:ny)=zeros(nx2-nx1+1,ny);
+     mask(1:nx,ny1:ny2)=zeros(nx,ny2-ny1+1);
+     W_hat = W_hat.*mask;
+   end
 
 
 plt.show()
