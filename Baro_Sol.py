@@ -16,7 +16,7 @@
 #     Ubar*d((Del^2w)/dx is added.
 
 
-from numpy import linspace,pi,sin,cos,sqrt,meshgrid,size,shape,zeros,transpose,fix,mean,array
+from numpy import linspace,pi,sin,cos,sqrt,meshgrid,size,shape,zeros,transpose,fix,mean,array,real
 from random import seed,random
 import matplotlib
 import matplotlib.cm as cm
@@ -24,7 +24,7 @@ import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from mpl_toolkits.mplot3d import Axes3D
-from numpy.fft import fft2
+from numpy.fft import fft2,ifft2
 RAFILT=1        # Robert-Asselin time filter.
 RA_COEFF=0.0001 # Robert-Asselin filter coefficient.
 FORWARD=0       # Forward time-step once per day.
@@ -259,6 +259,7 @@ Enstrophy=[]
 NLsize=[]
 CFL_nonlin=[]
 R=zeros((nx,ny))
+wcenter=[]
 
 for n in range(1,4):
 
@@ -414,16 +415,62 @@ for n in range(1,4):
 
     
 #  Fourier filtering 
-   if(FCLIP)
-     nfilt = 10;
-     nfilt=min([nfilt,(nx+1)/2-1,(ny+1)/2-1]);
-     mask(1:nx,1:ny) = ones(nx,ny);
-     nx1 = 2+nfilt; nx2 = nx-nfilt;
-     ny1 = 2+nfilt; ny2 = ny-nfilt; 
-     mask(nx1:nx2,1:ny)=zeros(nx2-nx1+1,ny);
-     mask(1:nx,ny1:ny2)=zeros(nx,ny2-ny1+1);
-     W_hat = W_hat.*mask;
-   end
+    if(FCLIP):
+        nfilt = 10;
+        nfilt=min([nfilt,(nx+1)/2-1,(ny+1)/2-1])
+        mask[0:nx,0:ny] = ones[nx,ny]
+        nx1 = 2+nfilt; nx2 = nx-nfilt
+        ny1 = 2+nfilt; ny2 = ny-nfilt; 
+        mask[nx1-1:nx2,0:ny]=zeros(nx2-nx1+1,ny);
+        mask[0:nx,ny1-1:ny2]=zeros(nx,ny2-ny1+1);
+        W_hat = W_hat*mask;
+        
+    
+#Compute the inverse transform to get the solution at (n+1)*Delta_t.
 
+    w_new = real(ifft2(W_hat)) # We assume w is real
+    w[0:nx,0:ny] = w_new
+    w[nx,0:ny] = w[0,0:ny]     # Fill in additional column at east.
+    w[0:nx+1,ny]=w[0:nx+1,0]   # Fill in additional row at north.
+    
+    #Add the term for the zonal mean flow.
+    
+    wtotal = w + Hbar - (fcor0/grav)*Ubar*YY;
+    xcenter, ycenter =int(fix(nx/2)),int(fix(ny/2))
+    
+
+    # Save particular values at each time-step. 
+    wcenter.append(w[xcenter,ycenter]);
+
+  #Save an east-west mid cross-section each time-step. 
+    w_section(1:nx+1,n) = w(1:nx+1,fix(ny/2));
+ # Shuffle the fields at the end of each time-step
+  # Dt = Delta_t;
+   #Q_nm1 = Q_n;
+
+#%  Save the fields at quarterpoints of the integration
+ #  if(n==1*nt/4) wq1=w; end
+  # if(n==2*nt/4) wq2=w; end
+   #if(n==3*nt/4) wq3=w; end
+   #if(n==4*nt/4) wq4=w; end
+
+  
+     #    contourf(XM,YM,wtotal,vecw); drawnow;
+      #   title('Intermediate Stream Function'); 
+      #   colorbar
+    # %   fprintf('Press RETURN to continue \n'); 
+    # %   pause(0.1)
+     #  else
+      #   contourf(XM,YM,w,vecw); drawnow;
+         
+         
+         
+       #  title('Intermediate Stream Function'); 
+        # colorbar
+       
+
+    
+    
+    
 
 plt.show()
