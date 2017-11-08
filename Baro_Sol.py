@@ -42,7 +42,7 @@ DAYLEN=1            # Forecast length in days.
 NX = 80             # Set spatial resolution
 NY = 30
 DELTA_t = 1/12      # Timestep in hours
-Ubar = 0            # Mean wind going from west to east wind (m/s). (zero by default)
+Ubar = 50            # Mean wind going from west to east wind (m/s). (zero by default)
 Hbar=5500           # Mean Height (m) for 500 mb surface.
 
 # Part 1. Set constants and domain.
@@ -113,7 +113,7 @@ XX = transpose(XMESH); YY= transpose(YMESH);
 #  The dependent variable is w, the streamfunction. w_0 is the Initial condition.
 #  w does NOT include the part due to the mean zonal flow.  w is periodic in both directions.
 # To the constant streamfunction/geopotential field we generate a random
-# perturbation in the form of 2-D wave packets onto a 2 dimensional grid
+# perturbation in the form of 2-D wave packets onto our 2 dimensional grid
 
 #set seed for same initial conditions every time
 seed(a=2)
@@ -124,8 +124,8 @@ seed(a=2)
 
 Z_0 = zeros((nx+1,ny+1));
  # Specify the number of waves in x and y
-Nwavex = 1
-Nwavey = 1
+Nwavex = 3
+Nwavey = 3
 Nwaves = (2*Nwavex+1)*(2*Nwavey+1)
 
 
@@ -269,11 +269,11 @@ wcenter=[]
 
 plt.figure()
 
-numberoftimes=20
+numberoftimes=1000
 
 for n in range(1,numberoftimes):
 
-#Take derivatives using finite-difference method, setting periodic boundary
+#Take derivatives using finite-difference method, set periodic boundary
 #conditions in x and y
 
 #x derivative
@@ -376,7 +376,8 @@ for n in range(1,numberoftimes):
         Q_nm1 = Q_n
 
 
-    #Calculate the energy and enstrophy integrals, the conserved quantities
+    #Calculate the kinetic energy and enstrophy integrals, this allows us to see
+    #how well energy is being conserved.
     Rgsq=zeros((nx,ny))
     Rgsq[0:nx,0:ny] = gradsq[0:nx,0:ny]
     Rwsq=zeros((nx,ny))
