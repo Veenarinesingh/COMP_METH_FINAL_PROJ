@@ -269,7 +269,7 @@ wcenter=[]
 
 plt.figure()
 
-numberoftimes=1000
+numberoftimes=100
 
 for n in range(1,numberoftimes):
 
@@ -405,6 +405,8 @@ for n in range(1,numberoftimes):
         RA_coeff = RA_COEFF
         Q_n = Q_n + RA_coeff*(Q_nm1+Q_np1-2*Q_n)
 
+
+
 #   Section 3.3: Solve the Helmholtz Equation (Del^2-F)w = R.
 
 #  Compute the fft of the right hand side
@@ -472,6 +474,12 @@ for n in range(1,numberoftimes):
     plt.contourf(XM, YM, wtotal,vecw)
     plt.colorbar()
     plt.title('500 mb Geopotential Height')
+
+    #Plot east-west wind strength contours
+    plt.draw()
+    CS = plt.contour(XM, YM, 1000*dwdy,colors='k')
+    plt.title('wind')
+    plt.clabel(CS, inline=1, fontsize=10)
     plt.pause(.01)
 
 plt.show()
