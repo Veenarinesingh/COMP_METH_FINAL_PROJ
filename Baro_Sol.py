@@ -27,15 +27,6 @@ from mpl_toolkits import mplot3d
 from mpl_toolkits.mplot3d import Axes3D
 from numpy.fft import fft2,ifft2
 
-#Numerical method parameters
-RAFILT=1        # Robert-Asselin time filter.
-RA_COEFF=0.0001 # Robert-Asselin filter coefficient.
-FORWARD=0       # Forward time-step once per day.
-FCLIP=0         # Fourier clipping of small scales.
-ARAKAWA=1       # Energy/Enstrophy conserving Jacobian.
-Hbar=10^4       # Scale Height (m). at 500 mb level for barotropic atmosphere
-
-
 #Initial Conditions Specifications for a pseudo-real 500 mb flow
 
 DAYLEN=1            # Forecast length in days.
@@ -77,21 +68,9 @@ beta0 = 2*Omega*cos(phi0)/Rearth #Beta parameter
 
 # Calculate the Rossby Radius of Deformation.
 
-
-
-
-
-
-
 grav = 9.81 #gravitational acceleration in ms^-2
 L_R = sqrt(grav*Hbar)/fcor0  #Rossby Radius
-F = 1/(L_R**2)                 #Factor in B.V. Equation#####################################
-
-
-
-
-
-
+F = 1/(L_R**2)
 
 # Specify the domain size
 xlen = Rearth             # East-West Length of the Domain.
@@ -110,8 +89,8 @@ y = linspace(0,ny,ny+1)*Delta_y
 XX = transpose(XMESH); YY= transpose(YMESH);
 
 # Section 2. Define the Initial Fields.
-#  The dependent variable is w, the streamfunction. w_0 is the Initial condition.
-#  w does NOT include the part due to the mean zonal flow.  w is periodic in both directions.
+# The dependent variable is w, the streamfunction. w_0 is the Initial condition.
+# w does NOT include the part due to the mean zonal flow.  w is periodic in both directions.
 # To the constant streamfunction/geopotential field we generate a random
 # perturbation in the form of 2-D wave packets onto our 2 dimensional grid
 
@@ -123,7 +102,9 @@ seed(a=2)
 
 
 Z_0 = zeros((nx+1,ny+1));
- # Specify the number of waves in x and y
+
+# Specify the number of waves in x and y
+
 Nwavex = 3
 Nwavey = 3
 Nwaves = (2*Nwavex+1)*(2*Nwavey+1)
@@ -148,8 +129,10 @@ XM, YM = XX/(10**3), YY/(10**3)
 
 plt.figure()
 CS = plt.contourf(XM, YM, Z_0)
-plt.colorbar()
-plt.title('500 mbar Geopotential Perturbation (m)')
+plt.xlabel('x (kilometers)')
+plt.ylabel('y (kilometers)')
+plt.colorbar(label='Perturbation Height (m)')
+plt.title('500 mbar Geopotential Perturbation')
 
 
 # Plot the field including the mean flow
@@ -162,8 +145,10 @@ vecw = linspace(vecwmean-vecwspan,vecwmean+vecwspan,21);
 
 plt.figure()
 plt.contourf(XM, YM, Ztotal_0,vecw)
-plt.colorbar()
-plt.title('500 mbar Geopotential Height (m)')
+plt.xlabel('x (kilometers)')
+plt.ylabel('y (kilometers)')
+plt.colorbar(label='Geopotential Height (m)')
+plt.title('500 mbar Geopotential Height with mean horizontal flow')
 #generate initial streamfunction
 
 w_0=Z_0  #w_0 is perturbation height
@@ -214,6 +199,7 @@ surf = ax.plot_surface(XM, YM, w_0, cmap=cm.coolwarm,
 
 fig.colorbar(surf, shrink=0.5, aspect=5)
 plt.title('Initial Stream Function');
+
 
 plt.show(block=False)
 
@@ -269,7 +255,7 @@ wcenter=[]
 
 plt.figure()
 
-numberoftimes=100
+numberoftimes=3
 
 for n in range(1,numberoftimes):
 
@@ -370,10 +356,8 @@ for n in range(1,numberoftimes):
         ss =transpose(smesh)
         C_rs = 2*(cos(2*pi*rr/nx)-1)/Delta_x**2+2*(cos(2*pi*ss/ny)-1)/Delta_y**2-F
 
-    if FORWARD==1 and fix(n/nspd)*nspd==n:
-        print('Forward timestep once per day \n')
-        Dt = Delta_t/2
-        Q_nm1 = Q_n
+
+
 
 
     #Calculate the kinetic energy and enstrophy integrals, this allows us to see
@@ -401,12 +385,6 @@ for n in range(1,numberoftimes):
 
     Q_np1 = Q_nm1 - (2*Dt)*((grav/fcor0)*Jacobi + beta0*dwdx + Ubar*dlapdx)
 
-    if RAFILT==1:
-        RA_coeff = RA_COEFF
-        Q_n = Q_n + RA_coeff*(Q_nm1+Q_np1-2*Q_n)
-
-
-
 #   Section 3.3: Solve the Helmholtz Equation (Del^2-F)w = R.
 
 #  Compute the fft of the right hand side
@@ -427,18 +405,6 @@ for n in range(1,numberoftimes):
     #a3star.append(2*(W_hat[nx-4,1]) / nxny)
 
 
-#  Fourier filtering
-    if(FCLIP):
-        nfilt = 10;
-        nfilt=min([nfilt,(nx+1)/2-1,(ny+1)/2-1])
-        mask[0:nx,0:ny] = ones[nx,ny]
-        nx1 = 2+nfilt; nx2 = nx-nfilt
-        ny1 = 2+nfilt; ny2 = ny-nfilt;
-        mask[nx1-1:nx2,0:ny]=zeros(nx2-nx1+1,ny);
-        mask[0:nx,ny1-1:ny2]=zeros(nx,ny2-ny1+1);
-        W_hat = W_hat*mask;
-
-
 #Compute the inverse transform to get the solution at (n+1)*Delta_t.
 
     w_new = real(ifft2(W_hat)) # We assume w is real
@@ -449,48 +415,33 @@ for n in range(1,numberoftimes):
     #Add the term for the zonal mean flow.
 
     wtotal = w + Hbar - (fcor0/grav)*Ubar*YY;
-    xcenter, ycenter =int(fix(nx/2)),int(fix(ny/2))
 
 
-    # Save particular values at each time-step.
+
+    #Save particular values at each time-step.
+    #xcenter, ycenter =int(fix(nx/2)),int(fix(ny/2))
     #wcenter.append(w[xcenter,ycenter]);
 
 
 
-  #Save an east-west mid cross-section each time-step.
-    #w_section[0:nx+1,n-1] = w[0:nx+1,int(fix(ny/2))];
+#Save an east-west mid cross-section each time-step
+#w_section[0:nx+1,n-1] = w[0:nx+1,int(fix(ny/2))]
+
  # Shuffle the fields at the end of each time-step
+
     Dt = Delta_t
     Q_nm1 = Q_n
     timeestep=n
 
-#%  Save the fields at quarterpoints of the integration
- #  if(n==1*nt/4) wq1=w; end
-  # if(n==2*nt/4) wq2=w; end
-   #if(n==3*nt/4) wq3=w; end
-   #if(n==4*nt/4) wq4=w; end
-
     plt.clf()
     plt.contourf(XM, YM, wtotal,vecw)
     plt.colorbar()
-    plt.title('500 mb Geopotential Height')
+    plt.title('500 mb Geopotential Height and Zonal Wind Contours')
 
     #Plot east-west wind strength contours
     plt.draw()
     CS = plt.contour(XM, YM, 1000*dwdy,colors='k')
-    plt.title('wind')
     plt.clabel(CS, inline=1, fontsize=10)
     plt.pause(.01)
 
 plt.show()
-
-      #   colorbar
-
-    # %   pause(0.1)
-     #  else
-      #   contourf(XM,YM,w,vecw); drawnow;
-
-
-
-
-        # colorbar
